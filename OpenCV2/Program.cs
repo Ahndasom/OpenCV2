@@ -21,7 +21,12 @@ namespace OpenCV2
         BinOperation,
         Bitwise,
         Blur,
-        Edge
+        Edge,
+        Transform,
+        Affine,
+        Perspective,
+        Morphology,
+        PyramidUnion
     }
     public enum ImageFilter
     {
@@ -34,7 +39,7 @@ namespace OpenCV2
     {
         static void Main(string[] args)
         {
-            OpenCvtExam exam = OpenCvtExam.Video;
+            OpenCvtExam exam = OpenCvtExam.Affine;
 
             switch (exam)
             {
@@ -73,6 +78,21 @@ namespace OpenCV2
                     break;
                 case OpenCvtExam.Edge:
                     ExameEdge();
+                    break;
+                case OpenCvtExam.Transform:
+                    ExameTransform();
+                    break;
+                case OpenCvtExam.Affine:
+                    ExameAffine();
+                    break;
+                case OpenCvtExam.Perspective:
+                    ExamPerspective();
+                    break;
+                case OpenCvtExam.Morphology:
+                    ExamMorphology();
+                    break;
+                case OpenCvtExam.PyramidUnion:
+                    ExamPyramidUnion();
                     break;
                 default:
                     break;
@@ -347,7 +367,7 @@ namespace OpenCV2
                     Cv2.Canny(blur, dst, 100, 200, 3, true);
                     break;
             }
-            
+
 
             string strOperation = selType.ToString();
 
@@ -362,11 +382,167 @@ namespace OpenCV2
                 Cv2.ImShow(strOperation, result);
 
             }
-            
+
             Cv2.WaitKey(0);
             Cv2.DestroyAllWindows();
 
         }
-    }
+        static public void ExameTransform()
+        {
+            Mat src = Cv2.ImRead("C:\\Users\\user\\Desktop\\image\\wine.jpg", ImreadModes.ReducedColor2);
+            Mat dst = new Mat();
 
+            Mat Matrix = Cv2.GetRotationMatrix2D(new Point2f(src.Width / 2, src.Height / 2), 45, 1.5);  // 회전
+
+            Cv2.WarpAffine(src, dst, Matrix, new Size(src.Width, src.Height));
+
+
+            Cv2.ImShow("source", src);
+            Cv2.ImShow("dst", dst);
+
+            Cv2.WaitKey(0);
+        }
+
+        static public void ExameAffine()
+        {
+            Mat src = new Mat("C:\\Users\\user\\Desktop\\image\\snow.jpg");
+            Mat dst = new Mat();
+            List<Point2f> src_pts = new List<Point2f>()
+            {
+                new Point2f(0.0f,0.0f),
+                new Point2f(0.0f,src.Height),
+                new Point2f(src.Width,src.Height)
+
+            };
+            List<Point2f> dst_pts = new List<Point2f>()
+            {
+                new Point2f(100.0f,200.0f),
+                new Point2f(300.0f,src.Height),
+                new Point2f(src.Width-170.5f,src.Height-200.0f)
+            };
+            Mat matrix = Cv2.GetAffineTransform(src_pts, dst_pts);
+            Cv2.WarpAffine(src, dst, matrix, new Size(src.Width, src.Height));
+            Cv2.ImShow("src", src);
+            Cv2.ImShow("dst", dst);
+            Cv2.WaitKey(0);
+
+        }
+        static public void ExamPerspective()
+        {
+            Mat src = new Mat("C:\\Users\\user\\Desktop\\image\\snow.jpg");
+            Mat dst = new Mat();
+            List<Point2f> src_pts = new List<Point2f>()
+            {
+                new Point2f(0.0f,0.0f),
+                new Point2f(0.0f,src.Height),
+                new Point2f(src.Width,src.Height),
+                new Point2f(src.Width,0.0f)
+
+            };
+            List<Point2f> dst_pts = new List<Point2f>()
+            {
+                new Point2f(100.0f,200.0f),
+                new Point2f(300.0f,src.Height),
+                new Point2f(src.Width-170.5f,src.Height-200.0f),
+                new Point2f(src.Width - 100.0f, 50.0f)
+            };
+            Mat matrix = Cv2.GetPerspectiveTransform(src_pts, dst_pts);
+
+            // 변환 적용
+            Cv2.WarpPerspective(src, dst, matrix, new Size(src.Width, src.Height));
+            Cv2.ImShow("src", src);
+            Cv2.ImShow("dst", dst);
+            Cv2.WaitKey(0);
+
+        }
+        static public void ExamMorphology()
+        {
+            Mat src = new Mat("C:\\Users\\user\\Desktop\\image\\nape.jpg");
+            Mat dilate = new Mat();
+            Mat erode = new Mat();
+            Mat dst = new Mat();
+
+            Mat element = Cv2.GetStructuringElement(MorphShapes.Cross, new Size(5, 5));         //Cross : kernal만드는법, anchor
+            Cv2.Dilate(src, dilate, element, new Point(2, 2), 3);                            //중심점 5x5의 중심:2, iteration값:3 => 팽창을 여러번 반복횟수
+            Cv2.Erode(src, erode, element, new Point(-1, -1), 3);                           //중심점
+            Cv2.HConcat(new Mat[] { src, dilate, erode }, dst);
+            Cv2.ImShow("dst", dst);
+            Cv2.WaitKey(0);
+        }
+        static public void ExamPyramidUnion()
+        {
+            Mat apple = Cv2.ImRead("C:\\Users\\user\\Desktop\\image\\apple2.png");
+            Mat orange = Cv2.ImRead("C:\\Users\\user\\Desktop\\image\\orange2.png");
+
+            if (apple.Empty() || orange.Empty())
+            {
+                Console.WriteLine("이미지를 불러오지 못했습니다.");
+                return;
+            }
+
+            List<Mat> appleG = new List<Mat>() { apple };
+            List<Mat> orangeG = new List<Mat>() { orange };
+
+
+            for (int i = 0; i < 6; i++)
+            {
+                Mat applyPyr = new Mat();
+                Mat orangePyr = new Mat();
+                Cv2.PyrDown(appleG[i], applyPyr);
+                Cv2.PyrDown(orangeG[i], orangePyr);
+                appleG.Add(applyPyr);
+                orangeG.Add(orangePyr);
+            }
+
+            List<Mat> appleL = new List<Mat> { appleG[5] };
+            List<Mat> orangeL = new List<Mat> { orangeG[5] };
+
+            for (int i = 5; i > 0; i--)
+            {
+                Mat appleUp = new Mat();
+                Mat orangeUp = new Mat();
+                Cv2.PyrUp(appleG[i], appleUp, appleG[i - 1].Size());
+                Cv2.PyrUp(orangeG[i], orangeUp, orangeG[i - 1].Size());
+
+                Mat appleLap = new Mat();
+                Mat orangeLap = new Mat();
+
+                Cv2.Subtract(appleG[i - 1], appleUp, appleLap);
+                Cv2.Subtract(orangeG[i - 1], orangeUp, orangeLap);
+
+                appleL.Add(appleLap);
+                orangeL.Add(orangeLap);
+            }
+
+            List<Mat> laplacianBlended = new List<Mat>();
+            for (int i = 0; i < appleL.Count; i++)
+            {
+                Mat left = new Mat();
+                Mat right = new Mat();
+                int cols = appleL[i].Cols;
+
+                left = new Mat(appleL[i], new Rect(0, 0, cols / 2, appleL[i].Rows));
+                right = new Mat(orangeL[i], new Rect(cols / 2, 0, cols / 2, orangeL[i].Rows));
+
+
+                Mat blended = new Mat();
+                Cv2.HConcat(left, right, blended);
+                laplacianBlended.Add(blended);
+            }
+
+            Mat result = laplacianBlended[0];
+            for (int i = 1; i < 6; i++)
+            {
+                Mat upsampled = new Mat();
+                Cv2.PyrUp(result, upsampled);
+                Cv2.Add(upsampled, laplacianBlended[i], result);
+
+                Cv2.ImShow("laplacianBlended" + i, laplacianBlended[i]);
+                Cv2.ImShow("Blended Image" + i, result);
+            }
+
+            Cv2.WaitKey(0);
+            Cv2.DestroyAllWindows();
+        }
+    }
 }
