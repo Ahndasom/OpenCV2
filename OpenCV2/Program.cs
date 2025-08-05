@@ -26,7 +26,11 @@ namespace OpenCV2
         Affine,
         Perspective,
         Morphology,
-        PyramidUnion
+        PyramidUnion,
+        ContourDetection,
+        RelatedContour,
+        Matching
+
     }
     public enum ImageFilter
     {
@@ -39,7 +43,7 @@ namespace OpenCV2
     {
         static void Main(string[] args)
         {
-            OpenCvtExam exam = OpenCvtExam.Affine;
+            OpenCvtExam exam = OpenCvtExam.Matching;
 
             switch (exam)
             {
@@ -93,6 +97,15 @@ namespace OpenCV2
                     break;
                 case OpenCvtExam.PyramidUnion:
                     ExamPyramidUnion();
+                    break;
+                case OpenCvtExam.ContourDetection:
+                    ExamContour();
+                    break;
+                case OpenCvtExam.RelatedContour:
+                    ExamRelatedContour();
+                    break;
+                case OpenCvtExam.Matching:
+                    ExamMatch();
                     break;
                 default:
                     break;
@@ -544,5 +557,91 @@ namespace OpenCV2
             Cv2.WaitKey(0);
             Cv2.DestroyAllWindows();
         }
+        static public void ExamContour()
+        {
+            Mat src = Cv2.ImRead("C:\\Users\\user\\Desktop\\image\\chess.png");
+            Mat gray = new Mat();
+            Mat binary = new Mat();
+            Mat morp = new Mat();
+            Mat image = new Mat();
+            Mat dst = src.Clone();
+
+            Mat kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
+            Point[][] contours;
+            HierarchyIndex[] hierarchy;
+            Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+            Cv2.Threshold(gray, binary, 230, 255, ThresholdTypes.Binary);
+            Cv2.MorphologyEx(binary, morp, MorphTypes.Close, kernel, new Point(-1, -1), 2);
+            Cv2.BitwiseNot(morp, image);
+            Cv2.FindContours(image, out contours, out hierarchy, RetrievalModes.Tree, ContourApproximationModes.ApproxTC89KCOS);
+            Cv2.DrawContours(dst, contours, -1, new Scalar(255, 0, 0), 2, LineTypes.AntiAlias, hierarchy, 3);
+            for (int i = 0; i < contours.Length; i++)
+            {
+                for (int j = 0; j < contours[i].Length; j++)
+                {
+                    Cv2.Circle(dst, contours[i][j], 1, new Scalar(0, 255, 0), 3);
+                }
+            }
+            Cv2.ImShow("source", src);
+            Cv2.ImShow("dst", dst);
+            Cv2.WaitKey(0);
+            Cv2.DestroyAllWindows();
+        }
+        static public void ExamRelatedContour()
+        {
+
+            Mat src = new Mat("C:\\Users\\user\\Desktop\\image\\hex.jpg", ImreadModes.ReducedColor2);
+            Mat yellow = new Mat();
+            Mat dst = src.Clone();
+
+            Point[][] contours;
+            HierarchyIndex[] hierarchy;
+
+            Cv2.InRange(src, new Scalar(0, 127, 127), new Scalar(100, 255, 255), yellow);
+            Cv2.FindContours(yellow, out contours, out hierarchy, RetrievalModes.Tree, ContourApproximationModes.ApproxTC89KCOS);
+
+            foreach (Point[] p in contours)
+            {
+                double length = Cv2.ArcLength(p, true);
+                double area = Cv2.ContourArea(p, true);
+
+                if (length < 100 && area < 1000 && p.Length < 5) continue;
+
+                Rect boundingRect = Cv2.BoundingRect(p);
+                RotatedRect rotatedRect = Cv2.MinAreaRect(p);
+                RotatedRect ellipse = Cv2.FitEllipse(p);
+
+                Point2f center;
+                float radius;
+                Cv2.MinEnclosingCircle(p, out center, out radius);
+
+                Cv2.Rectangle(dst, boundingRect, Scalar.Red, 2);
+                Cv2.Ellipse(dst, rotatedRect, Scalar.Blue, 2);
+                Cv2.Ellipse(dst, ellipse, Scalar.Green, 2);
+                Cv2.Circle(dst, (int)center.X, (int)center.Y, (int)radius, Scalar.Yellow, 2);
+            }
+            Cv2.ImShow("source", src);
+            Cv2.ImShow("dst", dst);
+            Cv2.WaitKey(0);
+
+        }
+        static public void ExamMatch()
+        {
+            Mat src = Cv2.ImRead("C:\\Users\\user\\Desktop\\image\\cards.png");
+            Mat templ = Cv2.ImRead("C:\\Users\\user\\Desktop\\image\\card.png");
+            Mat dst = src.Clone();
+            Mat result = new Mat();
+
+            Cv2.MatchTemplate(src, templ, result, TemplateMatchModes.CCoeffNormed);
+            Cv2.MinMaxLoc(result, out double minVal, out double maxVal, out Point minLoc, out Point maxLoc);
+            Cv2.Rectangle(dst, new Rect(maxLoc, templ.Size()), new Scalar(0, 0, 255), 4);
+            Cv2.ImShow("source", src);
+            Cv2.ImShow("template", templ);
+            Cv2.ImShow("dst", dst);
+            Cv2.WaitKey(0);
+            Cv2.DestroyAllWindows();
+
+        }
     }
+
 }
